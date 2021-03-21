@@ -7,7 +7,7 @@ import scala.util.Try
 
 import com.typesafe.scalalogging.StrictLogging
 import matcher.csv.WithCsvReader
-import matcher.model.{ClientAccount, Order}
+import matcher.model._
 
 
 object Clients {
@@ -52,15 +52,23 @@ object Main extends App with WithCsvReader with StrictLogging{
 
   val orders: Map[String, Order] = Stream.continually(ordersParser.nextRow()).takeWhile(_ != null).map { row =>
     val clientName = row.getField(Clients.CLIENT_NAME)
-    clientName -> Order(
-      clientName,
-      row.getField(Orders.OPERATION),
-      row.getField(Orders.SECURITY_NAME),
-      BigInt(row.getField(Orders.cost)),
-      BigInt(row.getField(Orders.count))
-    )
+
+    val order: Order = (row.getField(Orders.OPERATION), row.getField(Orders.SECURITY_NAME)) match{
+      case ("b", "A") => OrderBuyA(clientName, BigInt(row.getField(Orders.cost)), BigInt(row.getField(Orders.count)))
+      case ("b", "B") => OrderBuyB(clientName, BigInt(row.getField(Orders.cost)), BigInt(row.getField(Orders.count)))
+      case ("b", "C") => OrderBuyC(clientName, BigInt(row.getField(Orders.cost)), BigInt(row.getField(Orders.count)))
+      case ("b", "D") => OrderBuyD(clientName, BigInt(row.getField(Orders.cost)), BigInt(row.getField(Orders.count)))
+      case ("s", "A") => OrderSellA(clientName, BigInt(row.getField(Orders.cost)), BigInt(row.getField(Orders.count)))
+      case ("s", "B") => OrderSellB(clientName, BigInt(row.getField(Orders.cost)), BigInt(row.getField(Orders.count)))
+      case ("s", "C") => OrderSellC(clientName, BigInt(row.getField(Orders.cost)), BigInt(row.getField(Orders.count)))
+      case ("s", "D") => OrderSellD(clientName, BigInt(row.getField(Orders.cost)), BigInt(row.getField(Orders.count)))
+    }
+    clientName -> order
   }.toMap
 
   logger.debug(s"orders $orders")
+
+
+
 }
 
