@@ -1,12 +1,13 @@
 package matcher
 
+import java.io.{File, PrintWriter, Writer}
 import java.nio.charset.Charset
 import java.nio.file.Paths
 
-import scala.util.Try
+import scala.collection.immutable
 
 import com.typesafe.scalalogging.StrictLogging
-import matcher.csv.WithCsvReader
+import matcher.csv.WithCsvIO
 import matcher.model._
 
 object Clients {
@@ -26,12 +27,12 @@ object Orders {
   val count = 4
 }
 
-object Main extends App with WithCsvReader with StrictLogging {
+object Main extends App with WithCsvIO with StrictLogging {
 
   val clientsParser = csvReader.parse(Paths.get("clients.txt"),
     Charset.forName("US-ASCII"))
 
-  val clients: Map[String, Try[ClientAccount]] = Stream.continually(clientsParser.nextRow()).takeWhile(_ != null).map { row =>
+  val clients: Map[String, ClientAccount] = Stream.continually(clientsParser.nextRow()).takeWhile(_ != null).map { row =>
     val clientName = row.getField(Clients.CLIENT_NAME)
     clientName -> ClientAccount(
       clientName,
@@ -40,7 +41,7 @@ object Main extends App with WithCsvReader with StrictLogging {
       BigInt(row.getField(Clients.B_BALANCE)),
       BigInt(row.getField(Clients.C_BALANCE)),
       BigInt(row.getField(Clients.D_BALANCE))
-    )
+    ).get
   }.toMap
 
   logger.debug(s"clients $clients")
@@ -48,17 +49,18 @@ object Main extends App with WithCsvReader with StrictLogging {
   val ordersParser = csvReader.parse(Paths.get("orders.txt"),
     Charset.forName("US-ASCII"))
 
-  val orders: Map[String, Order] = Stream.continually(ordersParser.nextRow()).takeWhile(_ != null).map { row =>
-    val clientName = row.getField(Clients.CLIENT_NAME)
-
-    val order: Order = row.getField(Orders.OPERATION) match {
-      case "b" => OrderBuy(clientName, row.getField(Orders.SECURITY_NAME), BigInt(row.getField(Orders.cost)), BigInt(row.getField(Orders.count)))
-      case "s" => OrderSell(clientName, row.getField(Orders.SECURITY_NAME), BigInt(row.getField(Orders.cost)), BigInt(row.getField(Orders.count)))
+  val orders: immutable.Seq[Order] = Stream.continually(ordersParser.nextRow()).takeWhile(_ != null).map { row =>
+    row.getField(Orders.OPERATION) match {
+      case "b" => OrderBuy(row.getField(Clients.CLIENT_NAME), row.getField(Orders.SECURITY_NAME), BigInt(row.getField(Orders.cost)), BigInt(row.getField(Orders.count)))
+      case "s" => OrderSell(row.getField(Clients.CLIENT_NAME), row.getField(Orders.SECURITY_NAME), BigInt(row.getField(Orders.cost)), BigInt(row.getField(Orders.count)))
     }
-    clientName -> order
-  }.toMap
+  }
+  val result = ClientAccounts.processOrders(ClientAccounts(clients), orders)
 
+  val writer: Writer = new PrintWriter(new File("result.txt"), "US-ASCII")
 
+  val appender = csvWriter.append(writer)
+  result.clients.values.foreach(a => appender.appendLine(a.toCsvRowSeq: _*))
 
   logger.debug(s"orders $orders")
 }

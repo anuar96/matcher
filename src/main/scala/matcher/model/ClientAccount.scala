@@ -20,5 +20,8 @@ case class ClientAccount(clientName: String,
                          ABalance: BigInt,
                          BBalance: BigInt,
                          CBalance: BigInt,
-                         DBalance: BigInt)
+                         DBalance: BigInt){
+  def toCsvRow = s"$clientName $cashBalance $ABalance $BBalance $CBalance $DBalance"
+  def toCsvRowSeq = Seq(clientName, cashBalance.toString(), ABalance.toString(), BBalance.toString(), CBalance.toString(), DBalance.toString())
+}
 
