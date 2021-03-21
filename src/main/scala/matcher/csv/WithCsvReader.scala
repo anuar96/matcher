@@ -8,7 +8,7 @@ trait WithCsvReader {
     val csvReader: CsvReader = new CsvReader()
     csvReader.setFieldSeparator('\t')
     csvReader.setSkipEmptyRows(true)
-    csvReader.setTextDelimiter('"')
+//    csvReader.setTextDelimiter('"')
     csvReader
   }
 }
@@ -17,7 +17,7 @@ trait WithCsvWriter {
   protected val csvWriter: CsvWriter = {
     val csvWriter: CsvWriter = new CsvWriter()
     csvWriter.setFieldSeparator('\t')
-    csvWriter.setTextDelimiter('"')
+//    csvWriter.setTextDelimiter('"')
     csvWriter
   }
 }

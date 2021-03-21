@@ -5,6 +5,7 @@ import java.nio.file.Paths
 
 import scala.util.Try
 
+import com.typesafe.scalalogging.StrictLogging
 import matcher.csv.WithCsvReader
 import matcher.model.{ClientAccount, Order}
 
@@ -27,9 +28,9 @@ object Orders {
 }
 
 
-object Main extends App with WithCsvReader {
+object Main extends App with WithCsvReader with StrictLogging{
 
-  val clientsParser = csvReader.parse(Paths.get("resources", "clients.txt"),
+  val clientsParser = csvReader.parse(Paths.get("clients.txt"),
     Charset.forName("US-ASCII"))
 
   val clients: Map[String, Try[ClientAccount]] = Stream.continually(clientsParser.nextRow()).takeWhile(_ != null).map { row =>
@@ -44,10 +45,12 @@ object Main extends App with WithCsvReader {
     )
   }.toMap
 
-  val ordersParser = csvReader.parse(Paths.get("resources", "orders.txt"),
+  logger.debug(s"clients $clients")
+
+  val ordersParser = csvReader.parse(Paths.get("orders.txt"),
     Charset.forName("US-ASCII"))
 
-  val orders = Stream.continually(ordersParser.nextRow()).takeWhile(_ != null).map { row =>
+  val orders: Map[String, Order] = Stream.continually(ordersParser.nextRow()).takeWhile(_ != null).map { row =>
     val clientName = row.getField(Clients.CLIENT_NAME)
     clientName -> Order(
       clientName,
@@ -57,5 +60,7 @@ object Main extends App with WithCsvReader {
       BigInt(row.getField(Orders.count))
     )
   }.toMap
+
+  logger.debug(s"orders $orders")
 }
 

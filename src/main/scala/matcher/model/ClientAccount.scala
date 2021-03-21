@@ -9,7 +9,7 @@ object ClientAccount {
             BBalance: BigInt,
             CBalance: BigInt,
             DBalance: BigInt): Try[ClientAccount] = {
-    if (cashBalance > 0 && ABalance > 0 && BBalance > 0 && CBalance > 0 && DBalance > 0)
+    if (cashBalance >= 0 && ABalance >= 0 && BBalance >= 0 && CBalance >= 0 && DBalance >= 0)
       Success(new ClientAccount(clientName, cashBalance, ABalance, BBalance, CBalance, DBalance))
     else Failure(new IllegalArgumentException("balances can't be negative"))
   }
