@@ -1,9 +1,5 @@
 package matcher.model
 
-object Order {
-  //TODO apply
-}
-
 sealed abstract class Order(
                              val clientName: String,
                              val securityType: String,

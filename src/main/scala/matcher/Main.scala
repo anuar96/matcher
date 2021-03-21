@@ -9,7 +9,6 @@ import com.typesafe.scalalogging.StrictLogging
 import matcher.csv.WithCsvReader
 import matcher.model._
 
-
 object Clients {
   val CLIENT_NAME = 0
   val CASH_BALANCE = 1
@@ -26,7 +25,6 @@ object Orders {
   val cost = 3
   val count = 4
 }
-
 
 object Main extends App with WithCsvReader with StrictLogging {
 
@@ -59,6 +57,8 @@ object Main extends App with WithCsvReader with StrictLogging {
     }
     clientName -> order
   }.toMap
+
+
 
   logger.debug(s"orders $orders")
 }

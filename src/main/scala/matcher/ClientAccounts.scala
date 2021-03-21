@@ -3,50 +3,55 @@ package matcher
 import com.typesafe.scalalogging.StrictLogging
 import matcher.model._
 
-class ClientAccounts(clients: Map[String, ClientAccount]) extends StrictLogging {
-  def processOrders(orders: Seq[Order]): ClientAccounts = {
-    rejectOrders(orders).map {
-      case orderBuy: OrderBuy => orders.collectFirst {
+sealed trait MatchResult
+case class Matched(newOrder: Option[Order], clientAccounts: Map[String, ClientAccount]) extends MatchResult
+case object NonMatched extends MatchResult
+
+case class ClientAccounts(clients: Map[String, ClientAccount])
+
+object ClientAccounts extends StrictLogging {
+  def processOrders(clientAccounts: ClientAccounts, orders: Seq[Order]): ClientAccounts = {
+    rejectOrders(clientAccounts, orders).foldLeft(clientAccounts) {
+      case (clientAccounts: ClientAccounts, orderBuy: OrderBuy) => orders.collectFirst {
         case orderSell: OrderSell if orderSell.clientName == orderBuy.clientName && orderSell.securityType == orderBuy.securityType =>
-          matchAndProccessOrders(orders, orderBuy, orderSell)
-        case _ => this
-      }.getOrElse(this)
-      case orderSell: OrderSell =>
-        orders.collectFirst {
-          case orderBuy: OrderBuy if orderSell.clientName == orderBuy.clientName && orderSell.securityType == orderBuy.securityType =>
-            matchAndProccessOrders(orders, orderBuy, orderSell)
-          case _ => this
-        }.getOrElse(this)
+          matchAndProccessOrders(clientAccounts, orders, orderBuy, orderSell)
+        case _ => clientAccounts
+      }.getOrElse(clientAccounts)
+      case (clientAccounts: ClientAccounts, orderSell: OrderSell) => orders.collectFirst {
+        case orderBuy: OrderBuy if orderSell.clientName == orderBuy.clientName && orderSell.securityType == orderBuy.securityType =>
+          matchAndProccessOrders(clientAccounts,orders, orderBuy, orderSell)
+        case _ => clientAccounts
+      }.getOrElse(clientAccounts)
     }
   }
 
-  private def matchAndProccessOrders(orders: Seq[Order], orderBuy: OrderBuy, orderSell: OrderSell) = {
-    matchOrders(orderBuy, orderSell) match {
+  private def matchAndProccessOrders(clientAccounts: ClientAccounts, orders: Seq[Order], orderBuy: OrderBuy, orderSell: OrderSell): ClientAccounts = {
+    matchOrders(clientAccounts, orderBuy, orderSell) match {
       case Matched(Some(order: OrderBuy), clientAccounts) =>
         val droppedOrderSell = orders.drop(orders.indexOf(orderSell))
         val newOrders = insert(droppedOrderSell, droppedOrderSell.indexOf(orderBuy), order)
-        (new ClientAccounts(clientAccounts)).processOrders(newOrders)
+        processOrders(ClientAccounts(clientAccounts), newOrders)
       case Matched(Some(orderSell: OrderSell), clientAccounts) =>
         val droppedOrderBuy = orders.drop(orders.indexOf(orderBuy))
         val newOrders = insert(droppedOrderBuy, droppedOrderBuy.indexOf(orderSell), orderSell)
-        (new ClientAccounts(clientAccounts)).processOrders(newOrders)
+        processOrders(ClientAccounts(clientAccounts), newOrders)
       case Matched(None, clientAccounts) =>
         val droppedOrderBuy = orders.drop(orders.indexOf(orderBuy))
         val newOrders = droppedOrderBuy.drop(droppedOrderBuy.indexOf(orderSell))
-        (new ClientAccounts(clientAccounts)).processOrders(newOrders)
-      case NonMatched => this
+        processOrders(ClientAccounts(clientAccounts), newOrders)
+      case NonMatched => clientAccounts
     }
   }
 
-  private def rejectOrders(orders: Seq[Order]): Seq[Order] = {
+  private def rejectOrders(clientAccounts: ClientAccounts, orders: Seq[Order]): Seq[Order] = {
     orders.flatMap {
-      case orderBuy: OrderBuy if clients.get(orderBuy.clientName).exists { clientAcc =>
+      case orderBuy: OrderBuy if clientAccounts.clients.get(orderBuy.clientName).exists { clientAcc =>
         clientAcc.cashBalance >= orderBuy.count * orderBuy.cost
       } => Seq(orderBuy)
       case orderBuy: OrderBuy =>
         logger.info(s"${orderBuy.clientName} has not enough cash to execute $orderBuy")
         Nil
-      case orderSell: OrderSell if clients.get(orderSell.clientName).exists { clientAcc =>
+      case orderSell: OrderSell if clientAccounts.clients.get(orderSell.clientName).exists { clientAcc =>
         orderSell.securityType match {
           case "A" => clientAcc.ABalance >= orderSell.count
           case "B" => clientAcc.BBalance >= orderSell.count
@@ -60,37 +65,30 @@ class ClientAccounts(clients: Map[String, ClientAccount]) extends StrictLogging 
     }
   }
 
-  sealed trait MatchResult
-  case class Matched(newOrder: Option[Order], clientAccounts: Map[String, ClientAccount]) extends MatchResult
-  case object NonMatched extends MatchResult
-
-
-  def matchOrders(orderBuy: OrderBuy, orderSell: OrderSell): MatchResult = {
+  private def matchOrders(clientAccounts: ClientAccounts, orderBuy: OrderBuy, orderSell: OrderSell): MatchResult = {
     if (orderSell.count > orderBuy.count && orderBuy.cost >= orderSell.cost) {
       Matched(Some(orderSell.copy(count = orderSell.count - orderBuy.count)),
-        clients.map {
-          case (clientName, clientAccount: ClientAccount) if clientName == orderBuy.clientName =>
-            clientName -> updateClientAccountBuy(orderSell, clientAccount)
-          case (clientName, clientAccount: ClientAccount) if clientName == orderSell.clientName =>
-            clientName -> updateClientAccountSell(orderBuy, clientAccount)
-          case a => a
-        })
+        updateClientAccounts(clientAccounts, orderBuy, orderSell))
     }
     else if (orderSell.count < orderBuy.count) {
       Matched(Some(orderBuy.copy(count = orderBuy.count - orderSell.count)),
-      clients.map {
-        case (clientName, clientAccount: ClientAccount) if clientName == orderBuy.clientName =>
-          clientName -> updateClientAccountBuy(orderSell, clientAccount)
-        case (clientName, clientAccount: ClientAccount) if clientName == orderSell.clientName =>
-          clientName -> updateClientAccountSell(orderBuy, clientAccount)
-        case a => a
-      })
+        updateClientAccounts(clientAccounts, orderBuy, orderSell))
     }
-    else if (orderBuy.cost < orderSell.cost){
+    else if (orderBuy.cost < orderSell.cost) {
       NonMatched
     }
     else {
-      Matched(None, //TODO пересчет)
+      Matched(None, updateClientAccounts(clientAccounts, orderBuy, orderSell))
+    }
+  }
+
+  private def updateClientAccounts(clientAccounts: ClientAccounts, orderBuy: OrderBuy, orderSell: OrderSell) = {
+    clientAccounts.clients.map {
+      case (clientName, clientAccount: ClientAccount) if clientName == orderBuy.clientName =>
+        clientName -> updateClientAccountBuy(orderSell, clientAccount)
+      case (clientName, clientAccount: ClientAccount) if clientName == orderSell.clientName =>
+        clientName -> updateClientAccountSell(orderBuy, clientAccount)
+      case a => a
     }
   }
 
@@ -122,3 +120,16 @@ class ClientAccounts(clients: Map[String, ClientAccount]) extends StrictLogging 
     accountWithNewSecurityBalance.copy(cashBalance = newCashBalance)
   }
 }
+/* {
+     case orderBuy: OrderBuy => orders.collectFirst {
+       case orderSell: OrderSell if orderSell.clientName == orderBuy.clientName && orderSell.securityType == orderBuy.securityType =>
+         matchAndProccessOrders(orders, orderBuy, orderSell)
+       case _ => this
+     }.getOrElse(this)
+     case orderSell: OrderSell =>
+       orders.collectFirst {
+         case orderBuy: OrderBuy if orderSell.clientName == orderBuy.clientName && orderSell.securityType == orderBuy.securityType =>
+           matchAndProccessOrders(orders, orderBuy, orderSell)
+         case _ => this
+       }.getOrElse(this)
+   }*/
