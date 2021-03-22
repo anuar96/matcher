@@ -1,6 +1,6 @@
 package matcher
 
-import java.io.{File, PrintWriter, Writer}
+import java.io.{BufferedWriter, File, PrintWriter, StringWriter, Writer}
 import java.nio.charset.Charset
 import java.nio.file.Paths
 
@@ -9,6 +9,7 @@ import scala.collection.immutable
 import com.typesafe.scalalogging.StrictLogging
 import matcher.csv.WithCsvIO
 import matcher.model._
+import collection.JavaConverters._
 
 object Clients {
   val CLIENT_NAME = 0
@@ -29,10 +30,9 @@ object Orders {
 
 object Main extends App with WithCsvIO with StrictLogging {
 
-  val clientsParser = csvReader.parse(Paths.get("clients.txt"),
-    Charset.forName("US-ASCII"))
+  val clientsParser = csvReader.build(Paths.get("clients.txt"), Charset.forName("US-ASCII"))
 
-  val clients: Map[String, ClientAccount] = Stream.continually(clientsParser.nextRow()).takeWhile(_ != null).map { row =>
+  val clients: Map[String, ClientAccount] = clientsParser.asScala.map { row =>
     val clientName = row.getField(Clients.CLIENT_NAME)
     clientName -> ClientAccount(
       clientName,
@@ -46,22 +46,33 @@ object Main extends App with WithCsvIO with StrictLogging {
 
   logger.debug(s"clients $clients")
 
-  val ordersParser = csvReader.parse(Paths.get("orders.txt"),
+  val ordersParser = csvReader.build(Paths.get("orders.txt"),
     Charset.forName("US-ASCII"))
 
-  val orders: immutable.Seq[Order] = Stream.continually(ordersParser.nextRow()).takeWhile(_ != null).map { row =>
+  val orders = ordersParser.asScala.map { row =>
     row.getField(Orders.OPERATION) match {
       case "b" => OrderBuy(row.getField(Clients.CLIENT_NAME), row.getField(Orders.SECURITY_NAME), BigInt(row.getField(Orders.cost)), BigInt(row.getField(Orders.count)))
       case "s" => OrderSell(row.getField(Clients.CLIENT_NAME), row.getField(Orders.SECURITY_NAME), BigInt(row.getField(Orders.cost)), BigInt(row.getField(Orders.count)))
     }
   }
-  val result = ClientAccounts.processOrders(ClientAccounts(clients), orders)
-
-  val writer: Writer = new PrintWriter(new File("result.txt"), "US-ASCII")
-
-  val appender = csvWriter.append(writer)
-  result.clients.values.foreach(a => appender.appendLine(a.toCsvRowSeq: _*))
-
   logger.debug(s"orders $orders")
-}
 
+  val result = ClientAccounts.processOrders(ClientAccounts(clients), orders.toSeq)
+
+  val printWriter: Writer = new PrintWriter(new File("result.txt"), "US-ASCII")
+
+//  val writer: BufferedWriter = new BufferedWriter(writer)
+
+//  val writer = new StringWriter()
+
+  val appender = csvWriter.build(printWriter)
+
+  result.clients.values.foreach{a =>
+    appender.writeRow(a.toCsvRowSeq: _*)
+  }
+
+  appender.close()
+//  writer.flush()
+
+//  logger.debug(s"result is ${writer.toString}")
+}
