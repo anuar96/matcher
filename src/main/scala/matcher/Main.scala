@@ -61,10 +61,6 @@ object Main extends App with WithCsvIO with StrictLogging {
 
   val printWriter: Writer = new PrintWriter(new File("result.txt"), "US-ASCII")
 
-//  val writer: BufferedWriter = new BufferedWriter(writer)
-
-//  val writer = new StringWriter()
-
   val appender = csvWriter.build(printWriter)
 
   result.clients.values.foreach{a =>
@@ -72,7 +68,5 @@ object Main extends App with WithCsvIO with StrictLogging {
   }
 
   appender.close()
-//  writer.flush()
 
-//  logger.debug(s"result is ${writer.toString}")
 }
