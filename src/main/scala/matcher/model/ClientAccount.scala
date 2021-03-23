@@ -4,6 +4,15 @@ import scala.util.{Failure, Success, Try}
 
 object ClientAccount {
   def apply(clientName: String,
+            cashBalance: Int,
+            ABalance: Int,
+            BBalance: Int,
+            CBalance: Int,
+            DBalance: Int): Try[ClientAccount] ={
+    apply(clientName, BigInt(cashBalance), BigInt(ABalance), BigInt(BBalance), BigInt(CBalance), BigInt(DBalance))
+  }
+
+  def apply(clientName: String,
             cashBalance: BigInt,
             ABalance: BigInt,
             BBalance: BigInt,

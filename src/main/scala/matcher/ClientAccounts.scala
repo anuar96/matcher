@@ -4,7 +4,9 @@ import com.typesafe.scalalogging.StrictLogging
 import matcher.model._
 
 sealed trait MatchResult
+
 case class Matched(newOrder: Option[Order], clientAccounts: Map[String, ClientAccount]) extends MatchResult
+
 case object NonMatched extends MatchResult
 
 case class ClientAccounts(clients: Map[String, ClientAccount])
@@ -14,32 +16,43 @@ object ClientAccounts extends StrictLogging {
     rejectOrders(clientAccounts, orders).foldLeft(clientAccounts) {
       case (clientAccounts: ClientAccounts, orderBuy: OrderBuy) => orders.collectFirst {
         case orderSell: OrderSell if orderSell.clientName == orderBuy.clientName && orderSell.securityType == orderBuy.securityType =>
+          logger.debug(s"matchAndProccessOrders $orderBuy $orderSell")
           matchAndProccessOrders(clientAccounts, orders, orderBuy, orderSell)
-        case _ => clientAccounts
+        case _ =>
+          logger.debug(s"didn't find orderSell for $orderBuy")
+          clientAccounts
       }.getOrElse(clientAccounts)
       case (clientAccounts: ClientAccounts, orderSell: OrderSell) => orders.collectFirst {
         case orderBuy: OrderBuy if orderSell.clientName == orderBuy.clientName && orderSell.securityType == orderBuy.securityType =>
-          matchAndProccessOrders(clientAccounts,orders, orderBuy, orderSell)
-        case _ => clientAccounts
+          logger.debug(s"matchAndProccessOrders $orderBuy $orderSell")
+          matchAndProccessOrders(clientAccounts, orders, orderBuy, orderSell)
+        case _ =>
+          logger.debug(s"didn't find orderBuy for $orderSell")
+          clientAccounts
       }.getOrElse(clientAccounts)
     }
   }
 
   private def matchAndProccessOrders(clientAccounts: ClientAccounts, orders: Seq[Order], orderBuy: OrderBuy, orderSell: OrderSell): ClientAccounts = {
     matchOrders(clientAccounts, orderBuy, orderSell) match {
-      case Matched(Some(order: OrderBuy), clientAccounts) =>
+      case Matched(Some(newOrderBuy: OrderBuy), clientAccounts) =>
+        logger.info(s"partial matching new orderBuy $newOrderBuy orderBuy $orderBuy, old orderBuy $orderBuy")
         val droppedOrderSell = orders.drop(orders.indexOf(orderSell))
-        val newOrders = insert(droppedOrderSell, droppedOrderSell.indexOf(orderBuy), order)
+        val newOrders = insert(droppedOrderSell, droppedOrderSell.indexOf(orderBuy), newOrderBuy)
         processOrders(ClientAccounts(clientAccounts), newOrders)
-      case Matched(Some(orderSell: OrderSell), clientAccounts) =>
+      case Matched(Some(newOrderSell: OrderSell), clientAccounts) =>
+        logger.info(s"partial matching new orderSell $newOrderSell orderBuy $orderBuy, old orderSell $orderSell")
         val droppedOrderBuy = orders.drop(orders.indexOf(orderBuy))
-        val newOrders = insert(droppedOrderBuy, droppedOrderBuy.indexOf(orderSell), orderSell)
+        val newOrders = insert(droppedOrderBuy, droppedOrderBuy.indexOf(newOrderSell), newOrderSell)
         processOrders(ClientAccounts(clientAccounts), newOrders)
       case Matched(None, clientAccounts) =>
+        logger.debug(s"full match $orderBuy $orderSell")
         val droppedOrderBuy = orders.drop(orders.indexOf(orderBuy))
         val newOrders = droppedOrderBuy.drop(droppedOrderBuy.indexOf(orderSell))
         processOrders(ClientAccounts(clientAccounts), newOrders)
-      case NonMatched => clientAccounts
+      case NonMatched =>
+        logger.info(s"non matched $orderBuy $orderSell")
+        clientAccounts
     }
   }
 
