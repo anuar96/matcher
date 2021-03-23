@@ -120,16 +120,3 @@ object ClientAccounts extends StrictLogging {
     accountWithNewSecurityBalance.copy(cashBalance = newCashBalance)
   }
 }
-/* {
-     case orderBuy: OrderBuy => orders.collectFirst {
-       case orderSell: OrderSell if orderSell.clientName == orderBuy.clientName && orderSell.securityType == orderBuy.securityType =>
-         matchAndProccessOrders(orders, orderBuy, orderSell)
-       case _ => this
-     }.getOrElse(this)
-     case orderSell: OrderSell =>
-       orders.collectFirst {
-         case orderBuy: OrderBuy if orderSell.clientName == orderBuy.clientName && orderSell.securityType == orderBuy.securityType =>
-           matchAndProccessOrders(orders, orderBuy, orderSell)
-         case _ => this
-       }.getOrElse(this)
-   }*/
