@@ -1,21 +1,25 @@
 package matcher.model
 
-sealed abstract class Order(
-                             val clientName: String,
-                             val securityType: String,
-                             val cost: BigInt,
-                             val count: BigInt)
+sealed trait Order {
+  def clientName: String
+
+  def securityType: String
+
+  def cost: BigInt
+
+  def count: BigInt
+}
 
 sealed case class OrderBuy(
                             override val clientName: String,
                             override val securityType: String,
                             override val cost: BigInt,
                             override val count: BigInt
-                          ) extends Order(clientName, securityType, cost, count)
+                          ) extends Order
 
 sealed case class OrderSell(
-                             override val clientName: String,
-                             override val securityType: String,
-                             override val cost: BigInt,
-                             override val count: BigInt
-                           ) extends Order(clientName, securityType, cost, count)
+                             clientName: String,
+                             securityType: String,
+                             cost: BigInt,
+                             count: BigInt
+                           ) extends Order

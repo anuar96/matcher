@@ -21,16 +21,36 @@ class ClientAccountSpec extends FunSuite with StrictLogging {
     )
   }
 
-  test("client solds A for more money than he wanted in order sell") {
+  test("partial matching") {
     val clients: Map[String, ClientAccount] = ClientsParser.parseClients(Paths.get(s"$resourcesDir/test2/clients.txt"))
     val orders = OrdersParser.parserOrders(Paths.get(s"$resourcesDir/test2/orders.txt"))
-    val result = ClientAccounts.processOrders(ClientAccounts(clients), orders.toSeq)
+    val result: ClientAccounts = ClientAccounts.processOrders(ClientAccounts(clients), orders.toSeq)
 
-    assert(result ==
-      ClientAccounts(
-        Map("C1" -> ClientAccount("C1", BigInt(1500), BigInt(10), BigInt(5), BigInt(15), BigInt(0)).get,
-          "C2" -> ClientAccount("C2", BigInt(2000), BigInt(3), BigInt(35), BigInt(40), BigInt(10)).get
-        ))
-    )
+    val expectedResult = ClientAccounts(ClientsParser.parseClients(Paths.get(s"$resourcesDir/test2/result.txt")))
+
+    assert(result == expectedResult)
+  }
+
+  test("orders must be executed in right sequence") {
+    val clients: Map[String, ClientAccount] = ClientsParser.parseClients(Paths.get(s"$resourcesDir/test3/clients.txt"))
+    val orders = OrdersParser.parserOrders(Paths.get(s"$resourcesDir/test3/orders.txt"))
+    val result: ClientAccounts = ClientAccounts.processOrders(ClientAccounts(clients), orders.toSeq)
+
+    val expectedResult = ClientAccounts(ClientsParser.parseClients(Paths.get(s"$resourcesDir/test3/result.txt")))
+
+    assert(result == expectedResult)
+  }
+
+  test("nothing changes"){
+    val clients: Map[String, ClientAccount] = ClientsParser.parseClients(Paths.get(s"$resourcesDir/test4/clients.txt"))
+    val orders = OrdersParser.parserOrders(Paths.get(s"$resourcesDir/test4/orders.txt"))
+    val result: ClientAccounts = ClientAccounts.processOrders(ClientAccounts(clients), orders.toSeq)
+
+    val expectedResult = ClientAccounts(ClientsParser.parseClients(Paths.get(s"$resourcesDir/test4/result.txt")))
+
+    assert(result == expectedResult)
   }
 }
+
+
+
