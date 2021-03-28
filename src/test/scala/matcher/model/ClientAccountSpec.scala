@@ -9,7 +9,7 @@ import org.scalatest.FunSuite
 class ClientAccountSpec extends FunSuite with StrictLogging {
   val resourcesDir = "src/test/resources"
 
-  def testCase(testDirectory: String): Unit ={
+  def testCase(testDirectory: String): Unit = {
     val clients: Map[String, ClientAccount] = ClientsParser.parseClients(Paths.get(s"$resourcesDir/$testDirectory/clients.txt"))
     val orders = OrdersParser.parserOrders(Paths.get(s"$resourcesDir/$testDirectory/orders.txt"))
     val result: ClientAccounts = ClientAccounts.processOrders(ClientAccounts(clients), orders.toSeq)
@@ -18,7 +18,6 @@ class ClientAccountSpec extends FunSuite with StrictLogging {
 
     assert(result == expectedResult)
   }
-
 
   test("client doesn't have enough A balance to sell") {
     val clients: Map[String, ClientAccount] = ClientsParser.parseClients(Paths.get(s"$resourcesDir/test1/clients.txt"))
@@ -41,15 +40,15 @@ class ClientAccountSpec extends FunSuite with StrictLogging {
     testCase("test3")
   }
 
-  test("nothing changes"){
+  test("nothing changes") {
     testCase("test4")
   }
 
-  test("partial matching sell"){
+  test("partial matching sell") {
     testCase("test5")
   }
 
-  test("partial matching sell and buy"){
+  test("partial matching sell and buy") {
     testCase("test6")
   }
 }

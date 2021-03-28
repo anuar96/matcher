@@ -1,5 +1,6 @@
 package matcher
 
+import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 
 import com.typesafe.scalalogging.StrictLogging
@@ -14,35 +15,37 @@ case object NonMatched extends MatchResult
 case class ClientAccounts(clients: Map[String, ClientAccount])
 
 object ClientAccounts extends StrictLogging {
+  @tailrec
   def processOrders(clientAccounts: ClientAccounts, orders: Seq[Order]): ClientAccounts = {
     logger.debug(s"proccess orders $orders with clientAccounts $clientAccounts")
     val cleanedOrders = rejectOrders(clientAccounts, orders)
     logger.debug(s"cleaned orders are $cleanedOrders")
-    cleanedOrders.toList match {
+    val (updatedClientAccs, updatedOrders) = cleanedOrders.toList match {
       case head :: tail if head.isInstanceOf[OrderBuy] =>
         tail.collectFirst {
-          case orderSell: OrderSell if /*orderSell.clientName != orderBuy.clientName && */ orderSell.securityType == head.securityType =>
+          case orderSell: OrderSell if orderSell.securityType == head.securityType =>
             logger.debug(s"matchAndProccessOrders $head $orderSell")
             val (updatedClientAccounts, updatedOrders) = matchAndProccessOrders(clientAccounts, cleanedOrders, head.asInstanceOf[OrderBuy], orderSell)
-            processOrders(updatedClientAccounts, updatedOrders)
+            (updatedClientAccounts, updatedOrders)
         }.getOrElse {
           logger.debug(s"didn't find orderSell for $head")
-          processOrders(clientAccounts, tail)
+          (clientAccounts, tail)
         }
       case head :: tail if head.isInstanceOf[OrderSell] =>
         tail.collectFirst {
-          case orderBuy: OrderBuy if /*orderSell.clientName != orderBuy.clientName && */ head.securityType == orderBuy.securityType =>
+          case orderBuy: OrderBuy if head.securityType == orderBuy.securityType =>
             logger.debug(s"matchAndProccessOrders $orderBuy $head")
             val (updatedClientAccounts, updatedOrders) = matchAndProccessOrders(clientAccounts, cleanedOrders, orderBuy, head.asInstanceOf[OrderSell])
-            processOrders(updatedClientAccounts, updatedOrders)
+            (updatedClientAccounts, updatedOrders)
         }.getOrElse {
           logger.debug(s"didn't find orderSell for $head")
-          processOrders(clientAccounts, tail)
+          (clientAccounts, tail)
         }
       case head =>
         logger.debug(s"return clientAccounts $cleanedOrders")
-        clientAccounts
+        (clientAccounts, cleanedOrders)
     }
+    if (updatedOrders == cleanedOrders) clientAccounts else processOrders(updatedClientAccs, updatedOrders)
   }
 
   private def matchAndProccessOrders(clientAccounts: ClientAccounts, orders: Seq[Order], orderBuy: OrderBuy, orderSell: OrderSell): (ClientAccounts, Seq[Order]) = {
