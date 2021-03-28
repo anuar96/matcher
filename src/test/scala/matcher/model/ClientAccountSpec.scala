@@ -8,6 +8,18 @@ import org.scalatest.FunSuite
 
 class ClientAccountSpec extends FunSuite with StrictLogging {
   val resourcesDir = "src/test/resources"
+
+  def testCase(testDirectory: String): Unit ={
+    val clients: Map[String, ClientAccount] = ClientsParser.parseClients(Paths.get(s"$resourcesDir/$testDirectory/clients.txt"))
+    val orders = OrdersParser.parserOrders(Paths.get(s"$resourcesDir/$testDirectory/orders.txt"))
+    val result: ClientAccounts = ClientAccounts.processOrders(ClientAccounts(clients), orders.toSeq)
+
+    val expectedResult = ClientAccounts(ClientsParser.parseClients(Paths.get(s"$resourcesDir/$testDirectory/result.txt")))
+
+    assert(result == expectedResult)
+  }
+
+
   test("client doesn't have enough A balance to sell") {
     val clients: Map[String, ClientAccount] = ClientsParser.parseClients(Paths.get(s"$resourcesDir/test1/clients.txt"))
     val orders = OrdersParser.parserOrders(Paths.get(s"$resourcesDir/test1/orders.txt"))
@@ -22,33 +34,23 @@ class ClientAccountSpec extends FunSuite with StrictLogging {
   }
 
   test("partial matching") {
-    val clients: Map[String, ClientAccount] = ClientsParser.parseClients(Paths.get(s"$resourcesDir/test2/clients.txt"))
-    val orders = OrdersParser.parserOrders(Paths.get(s"$resourcesDir/test2/orders.txt"))
-    val result: ClientAccounts = ClientAccounts.processOrders(ClientAccounts(clients), orders.toSeq)
-
-    val expectedResult = ClientAccounts(ClientsParser.parseClients(Paths.get(s"$resourcesDir/test2/result.txt")))
-
-    assert(result == expectedResult)
+    testCase("test2")
   }
 
   test("orders must be executed in right sequence") {
-    val clients: Map[String, ClientAccount] = ClientsParser.parseClients(Paths.get(s"$resourcesDir/test3/clients.txt"))
-    val orders = OrdersParser.parserOrders(Paths.get(s"$resourcesDir/test3/orders.txt"))
-    val result: ClientAccounts = ClientAccounts.processOrders(ClientAccounts(clients), orders.toSeq)
-
-    val expectedResult = ClientAccounts(ClientsParser.parseClients(Paths.get(s"$resourcesDir/test3/result.txt")))
-
-    assert(result == expectedResult)
+    testCase("test3")
   }
 
   test("nothing changes"){
-    val clients: Map[String, ClientAccount] = ClientsParser.parseClients(Paths.get(s"$resourcesDir/test4/clients.txt"))
-    val orders = OrdersParser.parserOrders(Paths.get(s"$resourcesDir/test4/orders.txt"))
-    val result: ClientAccounts = ClientAccounts.processOrders(ClientAccounts(clients), orders.toSeq)
+    testCase("test4")
+  }
 
-    val expectedResult = ClientAccounts(ClientsParser.parseClients(Paths.get(s"$resourcesDir/test4/result.txt")))
+  test("partial matching sell"){
+    testCase("test5")
+  }
 
-    assert(result == expectedResult)
+  test("partial matching sell and buy"){
+    testCase("test6")
   }
 }
 

@@ -1,6 +1,5 @@
 package matcher
 
-import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 
 import com.typesafe.scalalogging.StrictLogging
@@ -15,7 +14,7 @@ case object NonMatched extends MatchResult
 case class ClientAccounts(clients: Map[String, ClientAccount])
 
 object ClientAccounts extends StrictLogging {
-  def processOrders1(clientAccounts: ClientAccounts, orders: Seq[Order]): ClientAccounts = {
+  def processOrders(clientAccounts: ClientAccounts, orders: Seq[Order]): ClientAccounts = {
     logger.debug(s"proccess orders $orders with clientAccounts $clientAccounts")
     val cleanedOrders = rejectOrders(clientAccounts, orders)
     logger.debug(s"cleaned orders are $cleanedOrders")
@@ -25,57 +24,25 @@ object ClientAccounts extends StrictLogging {
           case orderSell: OrderSell if /*orderSell.clientName != orderBuy.clientName && */ orderSell.securityType == head.securityType =>
             logger.debug(s"matchAndProccessOrders $head $orderSell")
             val (updatedClientAccounts, updatedOrders) = matchAndProccessOrders(clientAccounts, cleanedOrders, head.asInstanceOf[OrderBuy], orderSell)
-            processOrders1(updatedClientAccounts, updatedOrders)
+            processOrders(updatedClientAccounts, updatedOrders)
         }.getOrElse {
           logger.debug(s"didn't find orderSell for $head")
-          processOrders1(clientAccounts, tail)
+          processOrders(clientAccounts, tail)
         }
       case head :: tail if head.isInstanceOf[OrderSell] =>
         tail.collectFirst {
           case orderBuy: OrderBuy if /*orderSell.clientName != orderBuy.clientName && */ head.securityType == orderBuy.securityType =>
             logger.debug(s"matchAndProccessOrders $orderBuy $head")
             val (updatedClientAccounts, updatedOrders) = matchAndProccessOrders(clientAccounts, cleanedOrders, orderBuy, head.asInstanceOf[OrderSell])
-            processOrders1(updatedClientAccounts, updatedOrders)
+            processOrders(updatedClientAccounts, updatedOrders)
         }.getOrElse {
           logger.debug(s"didn't find orderSell for $head")
-          processOrders1(clientAccounts, tail)
+          processOrders(clientAccounts, tail)
         }
       case head =>
         logger.debug(s"return clientAccounts $cleanedOrders")
         clientAccounts
     }
-  }
-
-  @tailrec
-  def processOrders(clientAccounts: ClientAccounts, orders: Seq[Order]): ClientAccounts = {
-    val cleanedOrders = rejectOrders(clientAccounts, orders)
-    val (updatedClientAccounts, newOrders) = cleanedOrders.foldLeft((clientAccounts, cleanedOrders)) {
-      case ((clientAccounts: ClientAccounts, newOrders), orderBuy: OrderBuy) =>
-        val rest = newOrders.splitAt(orders.indexOf(orderBuy))._2 //TODO
-        rest.collectFirst {
-          case orderSell: OrderSell if /*orderSell.clientName != orderBuy.clientName && */ orderSell.securityType == orderBuy.securityType =>
-            logger.debug(s"matchAndProccessOrders $orderBuy $orderSell")
-            matchAndProccessOrders(clientAccounts, newOrders, orderBuy, orderSell)
-        }.getOrElse {
-          logger.debug(s"didn't find orderSell for $orderBuy")
-          (clientAccounts, cleanedOrders)
-        }
-      case ((clientAccounts: ClientAccounts, newOrders), orderSell: OrderSell) =>
-        val rest: Seq[Order] = newOrders.splitAt(orders.indexOf(orderSell))._2 //TODO
-        rest.collectFirst {
-          case orderBuy: OrderBuy if /*orderSell.clientName != orderBuy.clientName && */ orderSell.securityType == orderBuy.securityType =>
-            logger.debug(s"matchAndProccessOrders $orderBuy $orderSell")
-            matchAndProccessOrders(clientAccounts, newOrders, orderBuy, orderSell)
-        }.getOrElse {
-          logger.debug(s"didn't find orderBuy for $orderSell")
-          (clientAccounts, cleanedOrders)
-        }
-    }
-
-    if (cleanedOrders.length != newOrders.length)
-      processOrders(updatedClientAccounts, newOrders)
-    else
-      updatedClientAccounts
   }
 
   private def matchAndProccessOrders(clientAccounts: ClientAccounts, orders: Seq[Order], orderBuy: OrderBuy, orderSell: OrderSell): (ClientAccounts, Seq[Order]) = {
@@ -188,7 +155,7 @@ object ClientAccounts extends StrictLogging {
       case "C" => clientAccount.copy(CBalance = clientAccount.CBalance - count)
       case "D" => clientAccount.copy(DBalance = clientAccount.DBalance - count)
     }
-    val newCashBalance = clientAccount.cashBalance + orderSell.cost * count //TODO orderSell.cost???
+    val newCashBalance = clientAccount.cashBalance + orderSell.cost * count
     accountWithNewSecurityBalance.copy(cashBalance = newCashBalance)
   }
 
